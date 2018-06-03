@@ -6,6 +6,7 @@ import numpy as np
 from collections import namedtuple
 from duelling_network import DuellingDQN
 from env import make_local_env
+import cv2
 
 Transition = namedtuple('Transition', ['S', 'A', 'R', 'Gamma', 'q'])
 N_Step_Transition = namedtuple('N_Step_Transition', ['St', 'At', 'R_ttpB', 'Gamma_ttpB', 'qS_t', 'S_tpn', 'qS_tpn', 'key'])
@@ -178,3 +179,9 @@ if __name__ == "__main__":
     shared_replay_mem = mp_manager.Queue()
     actor = Actor(1, env_conf, shared_state, shared_replay_mem, params)
     actor.gather_experience(101)
+    print("Main: replay_mem.size:", shared_replay_mem.qsize())
+    for i in range(shared_replay_mem.qsize()):
+        p, xp = shared_replay_mem.get()
+        print("priority:", p)
+        cv2.imshow("St", xp.St)
+        cv2.waitKey(0)
