@@ -12,7 +12,7 @@ N_Step_Transition = namedtuple('N_Step_Transition', ['St', 'At', 'R_ttpB', 'Gamm
 Prioritized_N_Step_Transition = namedtuple('Prioritized_N_Step_Transition', ['St', 'At', 'R_ttpB', 'Gamma_ttpB',
                                                                              'S_tpn', 'priority', 'key'])
 class ExperienceBuffer(object):
-    def __init__(self, n):
+    def __init__(self, n, actor_id):
         """
         Implements a circular/ring buffer to store n-step transition data used by the actor
         :param n:
@@ -22,6 +22,8 @@ class ExperienceBuffer(object):
         self.capacity = n
         self.local_memory = list()  #  To store n-step transitions b4 they r batched, prioritized and sent to replay mem
         self.gamma = 0.99
+        self.id = actor_id
+        self.n_step_seq_num = 0  # Used to compose the unique key per per-actor and per n-step transition stored
 
     def update_buffer(self):
         """
@@ -31,10 +33,10 @@ class ExperienceBuffer(object):
         """
         for i in range(self.B - 1):
             R = self.buffer[i].R
-            Gamma = self.buffer[i].Gamma
-            for k in range(1, self.B):
-                Gamma = self.buffer[i].Gamma ** k
-                R += self.gamma * self.buffer[i+1].R
+            Gamma = 1
+            for k in range(i + 1, self.B ):
+                Gamma *= self.gamma
+                R += Gamma * self.buffer[k].R
             self.buffer[i] = Transition(self.buffer[i].S, self.buffer[i].A, R, Gamma, self.buffer[i].q)
 
     def add(self, data):
@@ -43,15 +45,16 @@ class ExperienceBuffer(object):
         :param data: tuple containing a transition data of type Transition(s, a, r, gamma, q)
         :return: None
         """
-        if self.idx  + 1 <= self.capacity:
+        if self.idx  + 1 < self.capacity:
             self.idx += 1
             self.buffer.append(None)
             self.buffer[self.idx] = data
             self.update_buffer()  #  calculate the accumulated per-step disc & partial return for all entries
         else:  # Buffer has reached its capacity, n
             #  Construct the n-step transition
-            print("self.buffer.len:", len(self.buffer))
-            n_step_transition = N_Step_Transition(*self.buffer[0], data.S, data.q)
+            key = str(self.id) + str(self.n_step_seq_num)
+            n_step_transition = N_Step_Transition(*self.buffer[0], data.S, data.q, key)
+            self.n_step_seq_num += 1
             #  Put the n_step_transition into a local memory store
             self.local_memory.append(n_step_transition)
             #  Free-up the buffer
@@ -92,7 +95,7 @@ class Actor(object):
         self.Q.load_state_dict(shared_state["Q_state_dict"])
         self.env = make_local_env(env_conf['name'])
         self.policy = self.epsilon_greedy_Q
-        self.local_experience_buffer = ExperienceBuffer(self.params["local_experience_buffer_capacity"])
+        self.local_experience_buffer = ExperienceBuffer(self.params["local_experience_buffer_capacity"], self.actor_id)
         self.global_replay_queue = shared_replay_mem
         eps = self.params['epsilon']
         N = self.params['num_actors']
