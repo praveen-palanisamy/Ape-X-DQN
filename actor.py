@@ -147,7 +147,22 @@ class Actor(object):
             if t % self.params['Q_network_sync_freq'] == 0:
                 self.Q.load_state_dict(self.shared_state["Q_state_dict"])
 
-
-
-
-
+if __name__ == "__main__":
+    env_conf = {"state_shape": (1, 84, 84),
+                "action_dim": 4,
+                "name": "Breakout-v0"}
+    params= {"local_experience_buffer_capacity": 10,
+             "epsilon": 0.4,
+             "alpha": 7,
+             "gamma": 0.99,
+             "num_actors": 2,
+             "n_step_transition_batch_size": 5,
+             "Q_network_sync_freq": 10
+             }
+    dummy_q = DuellingDQN(env_conf['state_shape'], env_conf['action_dim'])
+    mp_manager = mp.Manager()
+    shared_state = mp_manager.dict()
+    shared_state["Q_state_dict"] = dummy_q.state_dict()
+    shared_replay_mem = mp_manager.Queue()
+    actor = Actor(1, env_conf, shared_state, shared_replay_mem, params)
+    actor.gather_experience(101)
