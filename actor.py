@@ -32,30 +32,29 @@ class ExperienceBuffer(object):
                 self.buffer[i].gamma = self.buffer[i].gamma ** k
                 self.buffer[i].r += self.gamma * self.buffer[i+1].r
 
-    def calculate_exp_priorities(self, n_step_transitions):
-        #  Calculate the absolute n-step TD errors
-        n_step_td_target = n_step_transitions.rewards + n_step_transitions.gammas * n_step_transitions.qS_tpn
-        n_step_td_error = n_step_td_target - n_step_transitions.qS_t
-        priorities = abs(n_step_td_error)
-
-
     def add(self, data):
         """
-        Add transition data to the Experience Buffer and update the accumulated per-step discounts and partial returns
+        Add transition data to the Experience Buffer and calls update_buffer
         :param data: tuple containing a transition data of type Transition(s, a, r, gamma, q)
         :return: None
         """
         if self.idx  + 1 < self.capacity:
             self.idx += 1
-            self.buffer[self.idx] = data
+            self.buffer[self.idx % self.capacity] = data
             self.update_buffer()  #  calculate the accumulated per-step disc & partial return for all entries
         else:  # Buffer has reached its capacity, n
             #  Construct the n-step transition
-            n_step_transition = N_Step_Transition(*self.buffer[0], data['s'], data['q'])
-            #  Put the n_step_transition into a Queue
-            #  Calculate the priorities in batch
-            #  Send the  n_step_transitionS to the global replay memory
+            n_step_transition = N_Step_Transition(*self.buffer[0], data['S'], data['q'])
+            #  Put the n_step_transition into a local memory store
+            self.local_memory.append(N_Step_Transition)
+            #  Free-up the buffer
+            self.buffer.clear()
 
+    def get(self, batch_size):
+        assert batch_size <= self.size, "Requested n-step transitions batch size is more than available"
+        batch_of_n_step_transitions = self.local_memory[: batch_size]
+        del self.local_memory[: batch_size]
+        return batch_of_n_step_transitions
 
     @property
     def B(self):
@@ -64,6 +63,14 @@ class ExperienceBuffer(object):
         :return: The current size of the buffer
         """
         return len(self.buffer)
+
+    @property
+    def size(self):
+        """
+        The current size of the local experience memory
+        :return:
+        """
+        return len(self.local_memory)
 
 
 class Actor(object):
