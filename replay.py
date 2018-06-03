@@ -44,27 +44,33 @@ class ReplayMemory(object):
         :param sample_size: Size of the batch to be sampled from the prioritized replay buffer
         :return: A list of N_Step_Transition objects
         """
+        mem = N_Step_Transition(*zip(*self.memory))
         sampled_keys = [np.random.choice(list(self.priorities.keys(), list(self.probs.values())))
                         for _ in range(sample_size) ]
         batch_xp = [N_Step_Transition(S, A, R, G, qt, Sn, qn, key) for k in sampled_keys
-                    for S, A, R, G, qt, Sn, qn, key in zip(self.memory.S_t, self.memory.A_t, self.memory.R_ttpB,
-                                                self.memory.Gamma_ttpB, self.memory.qS_t, self.memory.S_tpn,
-                                                self.memory.qS_tpn, self.memory.key) if key == k]
+                    for S, A, R, G, qt, Sn, qn, key in zip(mem.S_t, mem.A_t, mem.R_ttpB, mem.Gamma_ttpB,
+                                                           mem.qS_t, mem.S_tpn, mem.qS_tpn, mem.key) if key == k]
         return batch_xp
 
+    def add(self, priorities, xp_batch):
+        """
+        Adds batches of experiences and priorities to the replay memory
+        :param priorities: Priorities of the experiences in xp_batch
+        :param xp_batch: List of experiences of type N_Step_Transitions
+        :return:
+        """
+        # Add the new experience data to replay memory
+        [self.memory.append(xp) for xp in xp_batch]
+        # Set the initial priorities of the new experiences using set_priorities which also takes care of updating prob
+        self.set_priorities(priorities)
+        # Check to make sure the replay memory is within the soft capacity limit
+        self.remove_to_fit()
 
-    def set_priorities(self, new_priorities):
-        """
-        Updates the priorities of experience using the key that uniquely identifies an experience.
-        If a key does not exist, it is added. If a key already exists, the priority value is updated/overwritten
-        :param priorities: A dictionary with experience_key: priority_value key-value pairs
-        :return: None
-        """
-        self.priorities.update(new_priorities)
 
     def remove_to_fit(self):
         if self.size > self.soft_capacity:
             num_excess_data = self.size - self.soft_capacity
+            # FIFO
             del self.memory[: num_excess_data]
 
     @property

@@ -60,6 +60,7 @@ class ExperienceBuffer(object):
             self.local_memory.append(n_step_transition)
             #  Free-up the buffer
             self.buffer.clear()
+            #  Reset the memory index
             self.idx = -1
 
     def get(self, batch_size):
