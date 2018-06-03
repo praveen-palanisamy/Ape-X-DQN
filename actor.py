@@ -8,9 +8,9 @@ from duelling_network import DuellingDQN
 from env import make_local_env
 
 Transition = namedtuple('Transition', ['S', 'A', 'R', 'Gamma', 'q'])
-N_Step_Transition = namedtuple('N_Step_Transition', ['St', 'At', 'R_ttpB', 'Gamma_ttpB', 'qS_t', 'S_tpn', 'qS_tpn'])
+N_Step_Transition = namedtuple('N_Step_Transition', ['St', 'At', 'R_ttpB', 'Gamma_ttpB', 'qS_t', 'S_tpn', 'qS_tpn', 'key'])
 Prioritized_N_Step_Transition = namedtuple('Prioritized_N_Step_Transition', ['St', 'At', 'R_ttpB', 'Gamma_ttpB',
-                                                                             'S_tpn', 'priority', 'key'])
+                                                                             'S_tpn', 'key'])
 class ExperienceBuffer(object):
     def __init__(self, n, actor_id):
         """
@@ -119,35 +119,44 @@ class Actor(object):
         At = np.array(n_step_transitions.At, dtype=np.int)
         qS_t = np.array(n_step_transitions.qS_t)
 
+        print("qS_t.shape:", qS_t.shape)
+        print("np.max(qS_tpn,1):", np.max(qS_tpn, 1))
         #  Calculate the absolute n-step TD errors
         n_step_td_target =  rew_t_to_tpB + gamma_t_to_tpB * np.max(qS_tpn, 1)
-        n_step_td_error = n_step_td_target - qS_t[:,At]
-        priorities = abs(n_step_td_error)
-        keys = [str(self.actor_id) + str(step) for step in range(self.num_buffered_steps, len(priorities))]
-        self.num_buffered_steps += len(priorities)
-        prioritized_xp = [Prioritized_N_Step_Transition(*xp) for xp in
-                          list(zip(n_step_transitions.St, n_step_transitions.At, n_step_transitions.R_ttpB,
-                                      n_step_transitions.Gamma_ttpB, n_step_transitions.S_tpn, priorities, keys))]
-        return prioritized_xp
+        print("td_target:", n_step_td_target)
+        n_step_td_error = n_step_td_target - np.array([ qS_t[i, At[i]] for i in range(At.shape[0])])
+        print("td_err:", n_step_td_error)
+        priorities = {k: val for k in n_step_transitions.key for val in abs(n_step_td_error) }
+        #prioritized_xp = [Prioritized_N_Step_Transition(*xp) for xp in
+        #                  list(zip(n_step_transitions.St, n_step_transitions.At, n_step_transitions.R_ttpB,
+        #                              n_step_transitions.Gamma_ttpB, n_step_transitions.S_tpn, keys))]
+        return priorities
 
     def gather_experience(self, T):
+        # 3. Get initial state from environment
         obs = self.env.reset()
         for t in range(T):
             qS_t = self.Q(torch.from_numpy(np.resize(obs, (1, 84,84))).unsqueeze_(0).float())[2].detach().numpy().squeeze()
+            # 5. Select the action using the current policy
             action = self.policy(qS_t)
+            # 6. Apply action in the environment
             next_obs, reward, done, _ = self.env.step(action)
+            # 7. Add data to local buffer
             self.local_experience_buffer.add(Transition(obs, action, reward, self.gamma, qS_t))
             obs = next_obs
             print("t=", t, "action=", action, "xp_buf_size:", self.local_experience_buffer.size)
-
+            # 8. Periodically send data to replay
             if self.local_experience_buffer.size >= self.params['n_step_transition_batch_size']:
-                #  Calculate the priorities in batch
+                # 9. Get batches of multi-step transitions
                 n_step_experience_batch = self.local_experience_buffer.get(self.params['n_step_transition_batch_size'])
-                prioritized_batch_of_n_step_transitions = self.compute_priorities(n_step_experience_batch)
-                #  Send the  n_step_transitionS to the global replay memory
-                self.global_replay_queue.put(prioritized_batch_of_n_step_transitions)
+                # 10.Calculate the priorities for experience
+                priorities = self.compute_priorities(n_step_experience_batch)
+                print("Priorities:", priorities)
+                # 11. Send the experience to the global replay memory
+                [self.global_replay_queue.put(item) for item in zip(priorities.items(), n_step_experience_batch)]
 
             if t % self.params['Q_network_sync_freq'] == 0:
+                # 13. Obtain latest network parameters
                 self.Q.load_state_dict(self.shared_state["Q_state_dict"])
 
 if __name__ == "__main__":
