@@ -26,7 +26,12 @@ class Learner(object):
         self.optimizer = torch.optim.RMSprop(self.Q.parameters(), lr=0.00025 / 4, weight_decay=0.95, eps=1.5e-7)
         self.num_q_updates = 0
 
-    def compute_loss_and_update_priorities(self, xp_batch):
+    def compute_loss_and_priorities(self, xp_batch):
+        """
+        Computes the double-Q learning loss and the proportional experience priorities.
+        :param xp_batch: list of experiences of type N_Step_Transition
+        :return: double-Q learning loss and the proportional experience priorities
+        """
         n_step_transitions = N_Step_Transition(*zip(*xp_batch))
         # Convert tuple to numpy array
         S_t = np.array(n_step_transitions.St)
@@ -39,11 +44,10 @@ class Learner(object):
         Q_S_A = self.Q(S_t).gather(A_t, 1)
         batch_td_error = G_t - Q_S_A
         loss = 1/2 * (batch_td_error)**2
-        # Update the priorities of the experience
+        # Compute the new priorities of the experience
         priorities = {k: v for k in xp_batch.keys for v in abs(batch_td_error)}
-        self.replay_memory.set_priorities(priorities)
 
-        return loss
+        return loss, priorities
 
     def update_Q(self, loss):
         self.optimizer.zero_grad()
