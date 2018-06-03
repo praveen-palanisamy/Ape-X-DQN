@@ -62,12 +62,16 @@ class Learner(object):
         while self.replay_memory.size() <  50000:
             time.sleep(1)
         for t in range(T):
-            id, prioritized_xp_batch = self.replay_memory.sample(self.params['replay_sample_size'])
-            loss = self.compute_loss_and_update_priorities(prioritized_xp_batch)
+            # 4. Sample a prioritized batch of transitions
+            prioritized_xp_batch = self.replay_memory.sample(self.params['replay_sample_size'])
+            # 5. & 7. Apply double-Q learning rule, compute loss and experience priorities
+            loss, priorities = self.compute_loss_and_priorities(prioritized_xp_batch)
+            # 6. Update parameters of the Q network(s)
             self.update_Q(loss)
             self.shared_state['Q_state_dict'] = self.Q.state_dict()
-            priorities = self.compute_priorities(prioritized_xp_batch)
+            # 8. Update priorities
             self.replay_memory.set_priority(id, priorities)
 
+            # 9. Periodically remove old experience from replay memory
             if t % self.params['remove_old_xp_freq'] == 0:
                 self.replay_memory.cleanup_old_xp()

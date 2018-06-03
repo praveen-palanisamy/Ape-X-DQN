@@ -1,6 +1,8 @@
 from collections import namedtuple
 import numpy as np
 
+
+N_Step_Transition = namedtuple('N_Step_Transition', ['S_t', 'A_t', 'R_ttpB', 'Gamma_ttpB', 'qS_t', 'S_tpn', 'qS_tpn', 'key'])
 Prioritized_N_Step_Transition = namedtuple('Prioritized_N_Step_Transition', ['St', 'At', 'R_ttpB', 'Gamma_ttpB',
                                                                              'S_tpn', 'priority', 'key'])
 class ReplayMemory(object):
@@ -18,7 +20,19 @@ class ReplayMemory(object):
         self.prob = {k:v for k in priorities.keys() for v in prob}
 
     def sample(self, sample_size):
-        sampled_keys = np.random.choice(list(self.priorities.keys(), list(self.probs.values())))
+        """
+        Returns a batch of experiences sampled from the replay memory based on the sampling probability calculated using
+        the experience priority
+        :param sample_size: Size of the batch to be sampled from the prioritized replay buffer
+        :return: A list of N_Step_Transition objects
+        """
+        sampled_keys = [np.random.choice(list(self.priorities.keys(), list(self.probs.values())))
+                        for _ in range(sample_size) ]
+        batch_xp = [N_Step_Transition(S, A, R, G, qt, Sn, qn, key) for k in sampled_keys
+                    for S, A, R, G, qt, Sn, qn, key in zip(self.memory.S_t, self.memory.A_t, self.memory.R_ttpB,
+                                                self.memory.Gamma_ttpB, self.memory.qS_t, self.memory.S_tpn,
+                                                self.memory.qS_tpn, self.memory.key) if key == k]
+        return batch_xp
 
 
     def set_priorities(self, new_priorities):
