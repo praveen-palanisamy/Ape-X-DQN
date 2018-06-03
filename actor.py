@@ -9,9 +9,9 @@ from env import make_local_env
 import cv2
 
 Transition = namedtuple('Transition', ['S', 'A', 'R', 'Gamma', 'q'])
-N_Step_Transition = namedtuple('N_Step_Transition', ['St', 'At', 'R_ttpB', 'Gamma_ttpB', 'qS_t', 'S_tpn', 'qS_tpn', 'key'])
-Prioritized_N_Step_Transition = namedtuple('Prioritized_N_Step_Transition', ['St', 'At', 'R_ttpB', 'Gamma_ttpB',
-                                                                             'S_tpn', 'key'])
+N_Step_Transition = namedtuple('N_Step_Transition', ['S_t', 'A_t', 'R_ttpB', 'Gamma_ttpB', 'qS_t', 'S_tpn', 'qS_tpn', 'key'])
+
+
 class ExperienceBuffer(object):
     def __init__(self, n, actor_id):
         """
@@ -117,20 +117,16 @@ class Actor(object):
         rew_t_to_tpB = np.array(n_step_transitions.R_ttpB)
         gamma_t_to_tpB = np.array(n_step_transitions.Gamma_ttpB)
         qS_tpn = np.array(n_step_transitions.qS_tpn)
-        At = np.array(n_step_transitions.At, dtype=np.int)
+        A_t = np.array(n_step_transitions.A_t, dtype=np.int)
         qS_t = np.array(n_step_transitions.qS_t)
 
-        print("qS_t.shape:", qS_t.shape)
         print("np.max(qS_tpn,1):", np.max(qS_tpn, 1))
         #  Calculate the absolute n-step TD errors
         n_step_td_target =  rew_t_to_tpB + gamma_t_to_tpB * np.max(qS_tpn, 1)
         print("td_target:", n_step_td_target)
-        n_step_td_error = n_step_td_target - np.array([ qS_t[i, At[i]] for i in range(At.shape[0])])
+        n_step_td_error = n_step_td_target - np.array([ qS_t[i, A_t[i]] for i in range(A_t.shape[0])])
         print("td_err:", n_step_td_error)
         priorities = {k: val for k in n_step_transitions.key for val in abs(n_step_td_error) }
-        #prioritized_xp = [Prioritized_N_Step_Transition(*xp) for xp in
-        #                  list(zip(n_step_transitions.St, n_step_transitions.At, n_step_transitions.R_ttpB,
-        #                              n_step_transitions.Gamma_ttpB, n_step_transitions.S_tpn, keys))]
         return priorities
 
     def gather_experience(self, T):
@@ -152,9 +148,8 @@ class Actor(object):
                 n_step_experience_batch = self.local_experience_buffer.get(self.params['n_step_transition_batch_size'])
                 # 10.Calculate the priorities for experience
                 priorities = self.compute_priorities(n_step_experience_batch)
-                print("Priorities:", priorities)
                 # 11. Send the experience to the global replay memory
-                [self.global_replay_queue.put(item) for item in zip(priorities.items(), n_step_experience_batch)]
+                self.global_replay_queue.put([priorities, n_step_experience_batch])
 
             if t % self.params['Q_network_sync_freq'] == 0:
                 # 13. Obtain latest network parameters
@@ -181,7 +176,5 @@ if __name__ == "__main__":
     actor.gather_experience(101)
     print("Main: replay_mem.size:", shared_replay_mem.qsize())
     for i in range(shared_replay_mem.qsize()):
-        p, xp = shared_replay_mem.get()
+        p, xp_batch = shared_replay_mem.get()
         print("priority:", p)
-        cv2.imshow("St", xp.St)
-        cv2.waitKey(0)
