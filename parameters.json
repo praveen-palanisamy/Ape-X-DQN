@@ -1,0 +1,29 @@
+{
+  "env_conf": {
+      "state_shape": [1, 84, 84],
+      "action_dim": 4,
+      "name": "Breakout-v0"
+    },
+
+  "Actor":{
+    "num_steps": 3,
+    "epsilon": 0.4,
+    "alpha": 7,
+    "gamma": 0.99,
+    "num_actors": 2,
+    "n_step_transition_batch_size": 5,
+    "Q_network_sync_freq": 10
+  },
+
+  "Learner":{
+    "remove_old_xp_freq": 100,
+    "q_target_sync_freq": 2500
+  },
+
+  "Replay_Memory":{
+    "priority_exponent": 0.6,
+    "importance_sampling_exponent": 0.4
+  }
+
+
+}
