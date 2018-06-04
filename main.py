@@ -26,6 +26,10 @@ if __name__ =="__main__":
     shared_state = mp_manager.dict()
     shared_state["Q_state_dict"] = dummy_q.state_dict()
     shared_replay_mem = mp_manager.Queue()
+    #  TODO: Start Actors in separate proc
     actor = Actor(1, env_conf, shared_state, shared_replay_mem, actor_params)
     actor.gather_experience(11110)
+    # TODO: Run a routine in a separate proc to fetch/pre-fetch shared_replay_mem onto the ReplayBuffer for learner's use
+    # TODO: Spawn a learner proc
+
     print("Main: replay_mem.size:", shared_replay_mem.qsize())
