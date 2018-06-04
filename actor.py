@@ -18,10 +18,10 @@ class ExperienceBuffer(object):
         Implements a circular/ring buffer to store n-step transition data used by the actor
         :param n:
         """
-        self.buffer = list()
+        self.local_1step_buffer = list()  #  To store single step transitions to compose n-step transitions
+        self.local_nstep_buffer= list()  #  To store n-step transitions b4 they r batched, prioritized and sent to replay mem
         self.idx = -1
         self.capacity = n
-        self.local_memory = list()  #  To store n-step transitions b4 they r batched, prioritized and sent to replay mem
         self.gamma = 0.99
         self.id = actor_id
         self.n_step_seq_num = 0  # Used to compose the unique key per per-actor and per n-step transition stored
