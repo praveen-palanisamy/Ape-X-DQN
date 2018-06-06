@@ -36,7 +36,6 @@ class ReplayMemory(object):
         # Update the sample probabilities as well
         self.update_sample_probabilities()
 
-
     def sample(self, sample_size):
         """
         Returns a batch of experiences sampled from the replay memory based on the sampling probability calculated using
@@ -66,14 +65,12 @@ class ReplayMemory(object):
         # Check to make sure the replay memory is within the soft capacity limit
         self.remove_to_fit()
 
-
     def remove_to_fit(self):
-        if self.size > self.soft_capacity:
-            num_excess_data = self.size - self.soft_capacity
+        if self.size() > self.soft_capacity:
+            num_excess_data = self.size() - self.soft_capacity
             # FIFO
             del self.memory[: num_excess_data]
 
-    @property
     def size(self):
         return len(self.memory)
 
