@@ -2,7 +2,7 @@
   "env_conf": {
       "state_shape": [1, 84, 84],
       "action_dim": 4,
-      "name": "Breakout-v0"
+      "name": "Pong-v0"
     },
 
   "Actor":{
@@ -19,7 +19,7 @@
     "remove_old_xp_freq": 100,
     "q_target_sync_freq": 2500,
     "min_replay_mem_size": 1,
-    "replay_sample_size": 1,
+    "replay_sample_size": 2,
     "load_saved_state": false
   },
 

@@ -47,9 +47,9 @@ class Learner(object):
         batch_td_error = G_t.float() - Q_S_A
         loss = 1/2 * (batch_td_error)**2
         # Compute the new priorities of the experience
-        priorities = {k: v for k in xp_batch.keys for v in abs(batch_td_error)}
+        priorities = {k: v for k in n_step_transitions.key for v in abs(batch_td_error.detach().data.numpy())}
 
-        return loss, priorities
+        return loss.mean(), priorities
 
     def update_Q(self, loss):
         self.optimizer.zero_grad()
@@ -62,21 +62,19 @@ class Learner(object):
 
     def learn(self, T):
         while self.replay_memory.size() <=  self.params["min_replay_mem_size"]:
-            print("rpm.size:", self.replay_memory.size(), "Waiting to get at least", self.params['min_replay_mem_size'])
             time.sleep(1)
         for t in range(T):
-            print("t=", t, "have enough items in replay mem. Starting to learn")
             # 4. Sample a prioritized batch of transitions
             prioritized_xp_batch = self.replay_memory.sample(int(self.params['replay_sample_size']))
-            print("p_xp_batch size:", len(prioritized_xp_batch) )
             # 5. & 7. Apply double-Q learning rule, compute loss and experience priorities
             loss, priorities = self.compute_loss_and_priorities(prioritized_xp_batch)
+            #print("\nLearner: t=", t, "loss:", loss, "RPM.size:", self.replay_memory.size(), end='\r')
             # 6. Update parameters of the Q network(s)
             self.update_Q(loss)
             self.shared_state['Q_state_dict'] = self.Q.state_dict()
             # 8. Update priorities
-            self.replay_memory.set_priority(id, priorities)
+            self.replay_memory.set_priorities(priorities)
 
             # 9. Periodically remove old experience from replay memory
             if t % self.params['remove_old_xp_freq'] == 0:
-                self.replay_memory.cleanup_old_xp()
+                self.replay_memory.remove_to_fit()
