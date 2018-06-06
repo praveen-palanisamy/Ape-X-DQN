@@ -144,6 +144,7 @@ class Actor(object):
     def gather_experience(self, T):
         # 3. Get initial state from environment
         obs = self.obs_preproc(self.env.reset())
+        ep_reward = []
         for t in range(T):
             with torch.no_grad():
                 qS_t = self.Q(torch.from_numpy(obs).unsqueeze(0).float())[2].squeeze().numpy()
@@ -154,12 +155,16 @@ class Actor(object):
             # 7. Add data to local buffer
             self.local_experience_buffer.add(Transition(obs, action, reward , self.gamma, qS_t))
             obs = self.obs_preproc(next_obs)
+            ep_reward.append(reward)
+            print("t=", t, "action=", action, "reward:", reward, "1stp_buf_size:", self.local_experience_buffer.B, end='\r')
 
             if done:  # Not mentioned in the paper's algorithm
                 # Truncate the n-step transition as the episode has ended; NOTE: Reward is set to 0
                 self.local_experience_buffer.construct_nstep_transition(Transition(obs, action, 0, self.gamma, qS_t))
                 # Reset the environment
                 obs = self.obs_preproc(self.env.reset())
+                print("t:", t, "  ep_len:", len(ep_reward), "  ep_rew_mean:", np.mean(ep_reward))
+                ep_reward = []
 
             # 8. Periodically send data to replay
             if self.local_experience_buffer.size >= self.params['n_step_transition_batch_size']:
@@ -175,6 +180,9 @@ class Actor(object):
                 self.Q.load_state_dict(self.shared_state["Q_state_dict"])
 
 if __name__ == "__main__":
+    """ 
+    Simple standalone test routine for Actor class
+    """
     env_conf = {"state_shape": (1, 84, 84),
                 "action_dim": 4,
                 "name": "Breakout-v0"}
@@ -184,7 +192,9 @@ if __name__ == "__main__":
              "gamma": 0.99,
              "num_actors": 2,
              "n_step_transition_batch_size": 5,
-             "Q_network_sync_freq": 10
+             "Q_network_sync_freq": 10,
+             "num_steps": 3
+
              }
     dummy_q = DuellingDQN(env_conf['state_shape'], env_conf['action_dim'])
     mp_manager = mp.Manager()
