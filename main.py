@@ -5,6 +5,7 @@ from multiprocessing.managers import BaseManager
 import json
 from replay import ReplayMemory
 from actor import Actor
+from learner import Learner
 from duelling_network import DuellingDQN
 from argparse import ArgumentParser
 
@@ -31,7 +32,6 @@ if __name__ =="__main__":
     learner_params = params["Learner"]
     replay_params = params["Replay_Memory"]
 
-    dummy_q = DuellingDQN(tuple(env_conf['state_shape']), env_conf['action_dim'])
     mp_manager = mp.Manager()
     shared_state = mp_manager.dict()
     shared_mem = mp_manager.Queue()
@@ -39,6 +39,12 @@ if __name__ =="__main__":
     ReplayManager.start()
     replay_mem = ReplayManager.Memory(1000,  replay_params)
     print("Main: RPM.size:", replay_mem.size())
+
+    # TODO: Spawn a learner proc
+    # A learner is started before the Actors so that the shared_state is populated with a Q_state_dict
+    learner = Learner(env_conf, learner_params, shared_state, replay_mem)
+    learner_proc = mp.Process(target=learner.learn, args=(100,))
+    learner_proc.start()
 
     #  TODO: Start Actors in separate proc
     actor = Actor(1, env_conf, shared_state, shared_mem, actor_params)
@@ -48,6 +54,8 @@ if __name__ =="__main__":
     # TODO: Run a routine in a separate proc to fetch/pre-fetch shared_replay_mem onto the ReplayBuffer for learner's use
     replay_mem_proc = mp.Process(target=add_experience_to_replay_mem, args=(shared_mem, replay_mem))
     replay_mem_proc.start()
+
+    learner_proc.join()
     actor_procs.join()
     replay_mem_proc.join()
 
