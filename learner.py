@@ -34,16 +34,17 @@ class Learner(object):
         """
         n_step_transitions = N_Step_Transition(*zip(*xp_batch))
         # Convert tuple to numpy array; Convert observations(S_t and S_tpn) to c x w x h torch Tensors (aka Variable)
-        to_tensor = lambda x: torch.from_numpy(np.resize(x, (self.state_shape[0], self.state_shape[1], self.state_shape[2])))
-        S_t = to_tensor(np.array(n_step_transitions.S_t))
-        S_tpn = to_tensor((np.array(n_step_transitions.S_tpn)))
+        S_t = torch.from_numpy(np.array(n_step_transitions.S_t)).float().requires_grad_(True)
+        S_tpn = torch.from_numpy(np.array(n_step_transitions.S_tpn)).float().requires_grad_(True)
         rew_t_to_tpB = np.array(n_step_transitions.R_ttpB)
         gamma_t_to_tpB = np.array(n_step_transitions.Gamma_ttpB)
-        A_t = np.array(n_step_transitions.A_t, dtype=np.int)
+        A_t = np.array(n_step_transitions.A_t)
 
-        G_t = rew_t_to_tpB + gamma_t_to_tpB * self.Q_double(S_tpn, torch.argmax(self.Q(S_tpn)))
-        Q_S_A = self.Q(S_t).gather(A_t, 1)
-        batch_td_error = G_t - Q_S_A
+        with torch.no_grad():
+            G_t = rew_t_to_tpB + gamma_t_to_tpB * \
+                             self.Q_double(S_tpn)[2].gather(1, torch.argmax(self.Q(S_tpn)[2], 1).view(-1, 1)).squeeze()
+        Q_S_A = self.Q(S_t)[2].gather(1, torch.from_numpy(A_t).reshape(-1, 1)).squeeze()
+        batch_td_error = G_t.float() - Q_S_A
         loss = 1/2 * (batch_td_error)**2
         # Compute the new priorities of the experience
         priorities = {k: v for k in xp_batch.keys for v in abs(batch_td_error)}
