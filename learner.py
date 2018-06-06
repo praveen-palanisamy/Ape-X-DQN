@@ -9,12 +9,12 @@ N_Step_Transition = namedtuple('N_Step_Transition', ['S_t', 'A_t', 'R_ttpB', 'Ga
 
 class Learner(object):
     def __init__(self, env_conf, learner_params, shared_state, shared_replay_memory):
-        state_shape = env_conf['state_shape']
+        self.state_shape = env_conf['state_shape']
         action_dim = env_conf['action_dim']
         self.params = learner_params
         self.shared_state = shared_state
-        self.Q = DuellingDQN(state_shape, action_dim)
-        self.Q_double = DuellingDQN(state_shape, action_dim)  # Target Q network which is slow moving replica of self.Q
+        self.Q = DuellingDQN(self.state_shape, action_dim)
+        self.Q_double = DuellingDQN(self.state_shape, action_dim)  # Target Q network which is slow moving replica of self.Q
         if self.params['load_saved_state']:
             try:
                 saved_state = torch.load(self.params['load_saved_state'])
@@ -33,9 +33,10 @@ class Learner(object):
         :return: double-Q learning loss and the proportional experience priorities
         """
         n_step_transitions = N_Step_Transition(*zip(*xp_batch))
-        # Convert tuple to numpy array
-        S_t = np.array(n_step_transitions.St)
-        S_tpn = np.array(n_step_transitions.S_tpn)
+        # Convert tuple to numpy array; Convert observations(S_t and S_tpn) to c x w x h torch Tensors (aka Variable)
+        to_tensor = lambda x: torch.from_numpy(np.resize(x, (self.state_shape[0], self.state_shape[1], self.state_shape[2])))
+        S_t = to_tensor(np.array(n_step_transitions.S_t))
+        S_tpn = to_tensor((np.array(n_step_transitions.S_tpn)))
         rew_t_to_tpB = np.array(n_step_transitions.R_ttpB)
         gamma_t_to_tpB = np.array(n_step_transitions.Gamma_ttpB)
         A_t = np.array(n_step_transitions.A_t, dtype=np.int)
@@ -59,11 +60,14 @@ class Learner(object):
             self.Q_double.load_state_dict(self.Q.state_dict())
 
     def learn(self, T):
-        while self.replay_memory.size() <  50000:
+        while self.replay_memory.size() <=  self.params["min_replay_mem_size"]:
+            print("rpm.size:", self.replay_memory.size(), "Waiting to get at least", self.params['min_replay_mem_size'])
             time.sleep(1)
         for t in range(T):
+            print("t=", t, "have enough items in replay mem. Starting to learn")
             # 4. Sample a prioritized batch of transitions
-            prioritized_xp_batch = self.replay_memory.sample(self.params['replay_sample_size'])
+            prioritized_xp_batch = self.replay_memory.sample(int(self.params['replay_sample_size']))
+            print("p_xp_batch size:", len(prioritized_xp_batch) )
             # 5. & 7. Apply double-Q learning rule, compute loss and experience priorities
             loss, priorities = self.compute_loss_and_priorities(prioritized_xp_batch)
             # 6. Update parameters of the Q network(s)
