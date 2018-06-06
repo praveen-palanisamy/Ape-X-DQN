@@ -128,12 +128,12 @@ class Actor(object):
         A_t = np.array(n_step_transitions.A_t, dtype=np.int)
         qS_t = np.array(n_step_transitions.qS_t)
 
-        print("np.max(qS_tpn,1):", np.max(qS_tpn, 1))
+        #print("np.max(qS_tpn,1):", np.max(qS_tpn, 1))
         #  Calculate the absolute n-step TD errors
         n_step_td_target =  rew_t_to_tpB + gamma_t_to_tpB * np.max(qS_tpn, 1)
-        print("td_target:", n_step_td_target)
+        #print("td_target:", n_step_td_target)
         n_step_td_error = n_step_td_target - np.array([ qS_t[i, A_t[i]] for i in range(A_t.shape[0])])
-        print("td_err:", n_step_td_error)
+        #print("td_err:", n_step_td_error)
         priorities = {k: val for k in n_step_transitions.key for val in abs(n_step_td_error) }
         return priorities
 
@@ -149,7 +149,7 @@ class Actor(object):
             # 7. Add data to local buffer
             self.local_experience_buffer.add(Transition(obs, action, reward, self.gamma, qS_t))
             obs = next_obs
-            print("t=", t, "action=", action, "n-step xp_buf_size:", self.local_experience_buffer.size)
+            #print("t=", t, "action=", action, "n-step xp_buf_size:", self.local_experience_buffer.size)
 
             if done:  # Not mentioned in the paper's algorithm
                 # Truncate the n-step transition as the episode has ended; NOTE: Reward is set to 0
