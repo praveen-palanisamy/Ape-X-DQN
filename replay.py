@@ -22,11 +22,12 @@ class ReplayMemory(object):
         """
         priorities = self.priorities
         prob = [p**self.alpha/ sum(priorities.values())  for p in priorities.values()]
-        self.sample_probabilities.update({k:v for k in priorities.keys() for v in prob})
+        prob /= sum(prob)
+        self.sample_probabilities.update({k:v for k in list(priorities) for v in prob})
         # Let the probabilities sum to 1
+        sum_of_prob = sum(self.sample_probabilities.values())
         for k in self.sample_probabilities.keys():
-            self.sample_probabilities[k] /= sum(self.sample_probabilities.values())
-        print("sum of prob:", sum(self.sample_probabilities.values()))
+            self.sample_probabilities[k] /= sum_of_prob
 
     def set_priorities(self, new_priorities):
         """
@@ -66,10 +67,13 @@ class ReplayMemory(object):
         [self.memory.append(xp) for xp in xp_batch]
         # Set the initial priorities of the new experiences using set_priorities which also takes care of updating prob
         self.set_priorities(priorities)
-        # Check to make sure the replay memory is within the soft capacity limit
-        self.remove_to_fit()
 
     def remove_to_fit(self):
+        """
+        Method to remove replay memory data above the soft capacity threshold. The experiences are removed in FIFO order
+        This method is called by the learner periodically
+        :return:
+        """
         if self.size() > self.soft_capacity:
             num_excess_data = self.size() - self.soft_capacity
             # FIFO
