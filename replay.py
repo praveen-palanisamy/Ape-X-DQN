@@ -23,6 +23,10 @@ class ReplayMemory(object):
         priorities = self.priorities
         prob = [p**self.alpha/ sum(priorities.values())  for p in priorities.values()]
         self.sample_probabilities.update({k:v for k in priorities.keys() for v in prob})
+        # Let the probabilities sum to 1
+        for k in self.sample_probabilities.keys():
+            self.sample_probabilities[k] /= sum(self.sample_probabilities.values())
+        print("sum of prob:", sum(self.sample_probabilities.values()))
 
     def set_priorities(self, new_priorities):
         """
@@ -44,7 +48,7 @@ class ReplayMemory(object):
         :return: A list of N_Step_Transition objects
         """
         mem = N_Step_Transition(*zip(*self.memory))
-        sampled_keys = [np.random.choice(list(self.priorities.keys(), list(self.probs.values())))
+        sampled_keys = [np.random.choice(list(self.priorities.keys()), p=list(self.sample_probabilities.values()))
                         for _ in range(sample_size) ]
         batch_xp = [N_Step_Transition(S, A, R, G, qt, Sn, qn, key) for k in sampled_keys
                     for S, A, R, G, qt, Sn, qn, key in zip(mem.S_t, mem.A_t, mem.R_ttpB, mem.Gamma_ttpB,
