@@ -38,20 +38,18 @@ if __name__ =="__main__":
     ReplayManager = BaseManager()
     ReplayManager.start()
     replay_mem = ReplayManager.Memory(1000,  replay_params)
-    print("Main: RPM.size:", replay_mem.size())
 
-    # TODO: Spawn a learner proc
     # A learner is started before the Actors so that the shared_state is populated with a Q_state_dict
     learner = Learner(env_conf, learner_params, shared_state, replay_mem)
     learner_proc = mp.Process(target=learner.learn, args=(100,))
     learner_proc.start()
 
-    #  TODO: Start Actors in separate proc
+    #  TODO: Test with multiple actors
     actor = Actor(1, env_conf, shared_state, shared_mem, actor_params)
-    actor_procs = mp.Process(target=actor.gather_experience, args=(1110,))
+    actor_procs = mp.Process(target=actor.gather_experience, args=(11110,))
     actor_procs.start()
 
-    # TODO: Run a routine in a separate proc to fetch/pre-fetch shared_replay_mem onto the ReplayBuffer for learner's use
+    # Run a routine in a separate proc to fetch/pre-fetch shared_replay_mem onto the ReplayBuffer for learner's use
     replay_mem_proc = mp.Process(target=add_experience_to_replay_mem, args=(shared_mem, replay_mem))
     replay_mem_proc.start()
 
