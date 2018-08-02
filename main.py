@@ -37,24 +37,26 @@ if __name__ =="__main__":
     shared_mem = mp_manager.Queue()
     ReplayManager = BaseManager()
     ReplayManager.start()
-    replay_mem = ReplayManager.Memory(1000,  replay_params)
+    replay_mem = ReplayManager.Memory(replay_params["soft_capacity"],  replay_params)
 
     # A learner is started before the Actors so that the shared_state is populated with a Q_state_dict
     learner = Learner(env_conf, learner_params, shared_state, replay_mem)
-    learner_proc = mp.Process(target=learner.learn, args=(100,))
+    learner_proc = mp.Process(target=learner.learn, args=(500000,))
     learner_proc.start()
 
     #  TODO: Test with multiple actors
-    actor = Actor(1, env_conf, shared_state, shared_mem, actor_params)
-    actor_procs = mp.Process(target=actor.gather_experience, args=(11110,))
-    actor_procs.start()
+    actor_procs = []
+    for i in range(actor_params["num_actors"]):
+        actor_proc = Actor(i, env_conf, shared_state, shared_mem, actor_params)
+        actor_proc.start()
+        actor_procs.append(actor_proc)
 
     # Run a routine in a separate proc to fetch/pre-fetch shared_replay_mem onto the ReplayBuffer for learner's use
     replay_mem_proc = mp.Process(target=add_experience_to_replay_mem, args=(shared_mem, replay_mem))
     replay_mem_proc.start()
 
     learner_proc.join()
-    actor_procs.join()
+    [actor_procs.join() for actor_proc in actor_procs]
     replay_mem_proc.join()
 
 
