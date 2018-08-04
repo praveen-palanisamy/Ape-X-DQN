@@ -2,7 +2,7 @@
   "env_conf": {
       "state_shape": [1, 84, 84],
       "action_dim": 4,
-      "name": "Pong-v0"
+      "name": "RiverraidNoFrameskip-v4"
     },
 
   "Actor":{

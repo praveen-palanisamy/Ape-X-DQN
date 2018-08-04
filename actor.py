@@ -174,7 +174,7 @@ class Actor(mp.Process):
                 self.local_experience_buffer.construct_nstep_transition(Transition(obs, action, 0, self.gamma, qS_t))
                 # Reset the environment
                 obs = self.obs_preproc(self.env.reset())
-                print("Actor#:", self.actor_id, "t:", t, "  ep_len:", len(ep_reward), "  ep_rew_mean:", np.mean(ep_reward))
+                print("Actor#:", self.actor_id, "t:", t, "  ep_len:", len(ep_reward), "  ep_reward:", np.sum(ep_reward))
                 ep_reward = []
 
             # 8. Periodically send data to replay

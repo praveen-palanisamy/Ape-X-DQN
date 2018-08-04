@@ -31,6 +31,8 @@ if __name__ =="__main__":
     actor_params = params["Actor"]
     learner_params = params["Learner"]
     replay_params = params["Replay_Memory"]
+    print("Using the params:\n env_conf:{} \n actor_params:{} \n learner_params:{} \n, replay_params:{}".format(
+        env_conf, actor_params, learner_params, replay_params))
 
     mp_manager = mp.Manager()
     shared_state = mp_manager.dict()
