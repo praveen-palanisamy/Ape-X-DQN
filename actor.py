@@ -204,7 +204,8 @@ if __name__ == "__main__":
              "num_actors": 2,
              "n_step_transition_batch_size": 5,
              "Q_network_sync_freq": 10,
-             "num_steps": 3
+             "num_steps": 3,
+             "T": 101 # Total number of time steps to gather experience
 
              }
     dummy_q = DuellingDQN(env_conf['state_shape'], env_conf['action_dim'])
@@ -213,7 +214,7 @@ if __name__ == "__main__":
     shared_state["Q_state_dict"] = dummy_q.state_dict()
     shared_replay_mem = mp_manager.Queue()
     actor = Actor(1, env_conf, shared_state, shared_replay_mem, params)
-    actor.gather_experience(101)
+    actor.run()
     print("Main: replay_mem.size:", shared_replay_mem.qsize())
     for i in range(shared_replay_mem.qsize()):
         p, xp_batch = shared_replay_mem.get()
